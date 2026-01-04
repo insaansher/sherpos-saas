@@ -18,12 +18,14 @@ func main() {
 	}
 
 	db.Connect()
+	db.SeedPlans()
 
 	r := gin.Default()
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost:3000"}
 	config.AllowCredentials = true
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-CSRF-Token", "X-Request-ID"}
 	r.Use(cors.New(config))
 
@@ -38,8 +40,8 @@ func main() {
 	})
 
 	v1 := r.Group("/api/v1")
+	v1.GET("/public/plans", handlers.PublicPlans)
 
-	// Public
 	auth := v1.Group("/auth")
 	{
 		auth.POST("/register", handlers.Register)
@@ -47,27 +49,27 @@ func main() {
 		auth.POST("/logout", handlers.Logout)
 	}
 
-	// Authenticated
 	api := v1.Group("/")
 	api.Use(middleware.Auth())
 	api.Use(middleware.CSRF())
 	{
-		// Shared: returns different data based on role
 		api.GET("/me", handlers.Me)
 
-		// Tenant Routes (Blocked for Platform Admin)
 		tenantRoutes := api.Group("/")
 		tenantRoutes.Use(middleware.RequireTenantUser())
 		{
-			// Onboarding
+			billing := tenantRoutes.Group("/billing")
+			billing.Use(middleware.RequireRole("owner"))
+			{
+				billing.GET("/current", handlers.TenantBillingInfo)
+				billing.POST("/choose-plan", handlers.ChoosePlan)
+			}
 			onboarding := tenantRoutes.Group("/onboarding")
 			onboarding.Use(middleware.RequireRole("owner", "manager"))
 			{
 				onboarding.GET("/status", handlers.OnboardingStatus)
 				onboarding.POST("/complete", handlers.CompleteOnboarding)
 			}
-
-			// POS
 			pos := tenantRoutes.Group("/pos")
 			pos.Use(middleware.EnsureOnboarding())
 			pos.Use(middleware.RequireRole("owner", "manager", "cashier"))
@@ -76,11 +78,20 @@ func main() {
 			}
 		}
 
-		// Admin Routes (Blocked for Tenant Users)
 		admin := api.Group("/admin")
 		admin.Use(middleware.RequirePlatformAdmin())
 		{
 			admin.GET("/dashboard", handlers.AdminDashboard)
+			admin.GET("/plans", handlers.AdminListPlans)
+			admin.POST("/plans", handlers.AdminCreatePlan)
+
+			// New Update Endpoints
+			admin.PUT("/plans/:id", handlers.AdminUpdatePlanMeta)
+			admin.PUT("/plans/:id/visibility", handlers.AdminUpdatePlanVisibility) // Specific PUTs before generic if route overlap? No, discrete paths.
+			admin.PUT("/plans/:id/prices", handlers.AdminUpdatePlanPrices)
+			admin.PUT("/plans/:id/limits", handlers.AdminUpdatePlanLimits)
+			admin.PUT("/plans/:id/features", handlers.AdminUpdatePlanFeatures)
+			admin.POST("/plans/:id/clone", handlers.AdminClonePlan)
 		}
 	}
 

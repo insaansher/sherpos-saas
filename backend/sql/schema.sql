@@ -1,12 +1,12 @@
--- Enable pgcrypto for UUID generation
+-- Extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Tenants Table
+-- 1. Tenants
 CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) UNIQUE NOT NULL, -- Simple slug for URL references if needed
-    status VARCHAR(50) DEFAULT 'trialing', -- trialing, active, read_only, blocked, pending_deletion, deleted
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    status VARCHAR(50) DEFAULT 'trialing',
     onboarding_completed BOOLEAN DEFAULT FALSE,
     timezone VARCHAR(50) DEFAULT 'UTC',
     currency VARCHAR(10) DEFAULT 'USD',
@@ -15,19 +15,82 @@ CREATE TABLE IF NOT EXISTS tenants (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Users Table
+-- 2. Users
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID REFERENCES tenants(id), -- Nullable for platform_admin
+    tenant_id UUID REFERENCES tenants(id),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255),
-    role VARCHAR(50) DEFAULT 'owner', -- owner, manager, cashier, platform_admin
+    role VARCHAR(50) DEFAULT 'owner',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Refresh Tokens
+-- 3. Plans
+CREATE TABLE IF NOT EXISTS plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    package_type VARCHAR(20) CHECK (package_type IN ('basic', 'advanced')) DEFAULT 'basic',
+    duration_type VARCHAR(20) CHECK (duration_type IN ('monthly', 'annual', '2y', '3y', '4y', 'lifetime')) DEFAULT 'monthly',
+    is_active BOOLEAN DEFAULT TRUE,
+    is_public BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Plan Prices
+CREATE TABLE IF NOT EXISTS plan_prices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    plan_id UUID REFERENCES plans(id) ON DELETE CASCADE,
+    currency VARCHAR(10) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    setup_fee NUMERIC(12, 2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(plan_id, currency)
+);
+
+-- 5. Plan Limits
+CREATE TABLE IF NOT EXISTS plan_limits (
+    plan_id UUID PRIMARY KEY REFERENCES plans(id) ON DELETE CASCADE,
+    branch_limit INT DEFAULT 1,
+    user_limit INT DEFAULT 1,
+    pos_device_limit INT DEFAULT 1
+);
+
+-- 6. Plan Features
+CREATE TABLE IF NOT EXISTS plan_features (
+    plan_id UUID PRIMARY KEY REFERENCES plans(id) ON DELETE CASCADE,
+    multi_branch BOOLEAN DEFAULT FALSE,
+    stock_transfer BOOLEAN DEFAULT FALSE,
+    advanced_reports BOOLEAN DEFAULT FALSE,
+    manufacturing BOOLEAN DEFAULT FALSE,
+    reward_points BOOLEAN DEFAULT FALSE,
+    quotations BOOLEAN DEFAULT FALSE,
+    delivery_management BOOLEAN DEFAULT FALSE,
+    offline_pos BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Tenant Subscriptions
+CREATE TABLE IF NOT EXISTS tenant_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE UNIQUE,
+    plan_id UUID REFERENCES plans(id),
+    currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+    status VARCHAR(20) CHECK (status IN ('trialing', 'active', 'renewal_window', 'grace_penalty', 'read_only', 'blocked')) DEFAULT 'trialing',
+    current_period_start TIMESTAMP WITH TIME ZONE,
+    current_period_end TIMESTAMP WITH TIME ZONE,
+    blocked_at TIMESTAMP WITH TIME ZONE,
+    delete_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Refresh Tokens
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -36,7 +99,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- POS Devices
+-- 9. POS Devices
 CREATE TABLE IF NOT EXISTS pos_devices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -47,7 +110,7 @@ CREATE TABLE IF NOT EXISTS pos_devices (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Audit Logs
+-- 10. Audit Logs
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
