@@ -190,3 +190,116 @@ CREATE TABLE IF NOT EXISTS sale_items (
     unit_price NUMERIC(12, 2) NOT NULL,
     total_price NUMERIC(12, 2) NOT NULL
 );
+
+-- Phase 5 Additions ---
+
+-- 16. Suppliers
+CREATE TABLE IF NOT EXISTS suppliers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    address TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 17. Purchases
+CREATE TABLE IF NOT EXISTS purchases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+    reference_no VARCHAR(100) NOT NULL, -- e.g. PO-2026-001
+    subtotal NUMERIC(12, 2) DEFAULT 0,
+    tax_total NUMERIC(12, 2) DEFAULT 0,
+    discount_total NUMERIC(12, 2) DEFAULT 0,
+    grand_total NUMERIC(12, 2) DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'received', 'cancelled')),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    received_at TIMESTAMP WITH TIME ZONE,
+    UNIQUE(tenant_id, reference_no)
+);
+
+-- 18. Purchase Items
+CREATE TABLE IF NOT EXISTS purchase_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    purchase_id UUID REFERENCES purchases(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    name_snapshot VARCHAR(255),
+    cost_price NUMERIC(12, 2) DEFAULT 0,
+    quantity INT NOT NULL,
+    line_total NUMERIC(12, 2) DEFAULT 0
+);
+
+-- 19. Stock Ledger (History)
+CREATE TABLE IF NOT EXISTS stock_ledger (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    ref_type VARCHAR(50) NOT NULL CHECK (ref_type IN ('sale', 'purchase', 'sale_return', 'purchase_return', 'adjustment', 'initial')),
+    ref_id UUID NOT NULL, -- ID of the sale, purchase, etc.
+    qty_change INT NOT NULL, -- Can be negative
+    qty_after INT NOT NULL, -- Snapshot of stock after change
+    note TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 20. Adjustments
+CREATE TABLE IF NOT EXISTS adjustments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    reason VARCHAR(50) NOT NULL CHECK (reason IN ('damage', 'correction', 'count', 'theft', 'other')),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 21. Adjustment Items
+CREATE TABLE IF NOT EXISTS adjustment_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    adjustment_id UUID REFERENCES adjustments(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    qty_change INT NOT NULL, -- Positive or negative
+    note TEXT
+);
+
+-- 22. Sale Returns
+CREATE TABLE IF NOT EXISTS sale_returns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    sale_id UUID REFERENCES sales(id) ON DELETE CASCADE NOT NULL,
+    reason TEXT,
+    refund_amount NUMERIC(12, 2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 23. Sale Return Items
+CREATE TABLE IF NOT EXISTS sale_return_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sale_return_id UUID REFERENCES sale_returns(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    quantity INT NOT NULL
+);
+
+-- 24. Purchase Returns
+CREATE TABLE IF NOT EXISTS purchase_returns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    purchase_id UUID REFERENCES purchases(id) ON DELETE CASCADE NOT NULL,
+    reason TEXT,
+    refund_amount NUMERIC(12, 2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 25. Purchase Return Items
+CREATE TABLE IF NOT EXISTS purchase_return_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    purchase_return_id UUID REFERENCES purchase_returns(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    quantity INT NOT NULL
+);

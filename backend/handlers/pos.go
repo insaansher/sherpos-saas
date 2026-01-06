@@ -123,20 +123,6 @@ func CreateSale(c *gin.Context) {
 			return
 		}
 
-		// Deduct Stock
-		if currentStock > 0 { // Just logic check, row might imply update
-			_, err := tx.Exec(`INSERT INTO inventory_stock (tenant_id, product_id, quantity) VALUES ($1, $2, $3)
-                  ON CONFLICT (tenant_id, product_id, variant_id) DO UPDATE SET quantity = inventory_stock.quantity - $4`,
-				tenantID, item.ProductID, currentStock-item.Quantity, item.Quantity)
-			// simplified: actually 'inventory_stock' unique constraint allows upsert.
-			// Ideally: UPDATE inventory_stock SET quantity = quantity - $1 WHERE product_id=$2
-			_, err = tx.Exec("UPDATE inventory_stock SET quantity = quantity - $1 WHERE product_id=$2 AND tenant_id=$3", item.Quantity, item.ProductID, tenantID)
-			if err != nil {
-				c.JSON(500, gin.H{"error": "Stock update failed"})
-				return
-			}
-		}
-
 		lineTotal := price * float64(item.Quantity)
 		totalAmount += lineTotal
 
@@ -170,6 +156,13 @@ func CreateSale(c *gin.Context) {
 			saleID, req.Items[i].ProductID, item.ProductName, item.Quantity, item.UnitPrice, item.TotalPrice)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Item insert failed"})
+			return
+		}
+
+		// Deduct Stock with Ledger
+		err = updateStockHelper(tx, tenantID, req.Items[i].ProductID, -item.Quantity, "sale", saleID, "POS Sale")
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Stock update failed: " + err.Error()})
 			return
 		}
 	}

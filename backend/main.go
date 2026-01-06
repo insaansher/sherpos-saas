@@ -80,6 +80,39 @@ func main() {
 				pos.POST("/sales", handlers.CreateSale)
 				pos.GET("/sales/:id", handlers.GetSale)
 			}
+
+			// PHASE 5: INVENTORY & OPS
+			ops := tenantRoutes.Group("/")
+			ops.Use(middleware.EnsureOnboarding())
+			ops.Use(middleware.RequireRole("owner", "manager"))
+			{
+				// Products (Management)
+				ops.GET("/products", handlers.ListProducts)
+				ops.POST("/products", handlers.CreateProduct)
+				ops.GET("/products/:id", handlers.GetProduct)
+				ops.PUT("/products/:id", handlers.UpdateProduct)
+
+				// Inventory
+				ops.GET("/inventory/ledger", handlers.GetStockLedger)
+				ops.POST("/inventory/adjustments", handlers.CreateAdjustment)
+
+				// Suppliers
+				ops.GET("/suppliers", handlers.ListSuppliers)
+				ops.POST("/suppliers", handlers.CreateSupplier)
+
+				// Purchases
+				ops.GET("/purchases", handlers.ListPurchases)
+				ops.POST("/purchases", handlers.CreatePurchase)
+				ops.PUT("/purchases/:id/receive", handlers.ReceivePurchase)
+
+				// Returns
+				ops.POST("/returns/sales", handlers.CreateSaleReturn)
+				ops.POST("/returns/purchases", handlers.CreatePurchaseReturn)
+
+				// Reports
+				ops.GET("/reports/daily-sales", handlers.GetDailySalesReport)
+				ops.GET("/reports/stock-alerts", handlers.GetStockAlerts)
+			}
 		}
 
 		admin := api.Group("/admin")

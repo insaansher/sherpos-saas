@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// --- Phase 4: POS Models ---
+// --- Phase 4 & 5 Models ---
 
 type Product struct {
 	ID            string  `json:"id"`
@@ -15,15 +15,16 @@ type Product struct {
 	Sku           string  `json:"sku"`
 	Barcode       string  `json:"barcode"`
 	Price         float64 `json:"price"`
-	StockQuantity int     `json:"stock_quantity"` // Aggregated from inventory
+	CostPrice     float64 `json:"cost_price"`
+	StockQuantity int     `json:"stock_quantity"`
 	IsActive      bool    `json:"is_active"`
 }
 
 type SaleItemRequest struct {
 	ProductID string  `json:"product_id" binding:"required"`
-	VariantID string  `json:"variant_id"` // Optional
+	VariantID string  `json:"variant_id"`
 	Quantity  int     `json:"quantity" binding:"required,min=1"`
-	UnitPrice float64 `json:"unit_price"` // Can be overridden or validated
+	UnitPrice float64 `json:"unit_price"`
 }
 
 type CreateSaleRequest struct {
@@ -45,10 +46,95 @@ type Sale struct {
 }
 
 type SaleItem struct {
+	ProductID   string  `json:"product_id"`
 	ProductName string  `json:"product_name"`
 	Quantity    int     `json:"quantity"`
 	UnitPrice   float64 `json:"unit_price"`
 	TotalPrice  float64 `json:"total_price"`
+}
+
+// --- Phase 5 Extended Models ---
+
+type Supplier struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Phone   string `json:"phone"`
+	Email   string `json:"email"`
+	Address string `json:"address"`
+}
+
+type CreateSupplierRequest struct {
+	Name    string `json:"name" binding:"required"`
+	Phone   string `json:"phone"`
+	Email   string `json:"email"`
+	Address string `json:"address"`
+}
+
+type Purchase struct {
+	ID           string    `json:"id"`
+	SupplierID   string    `json:"supplier_id"`
+	ReferenceNo  string    `json:"reference_no"`
+	GrandTotal   float64   `json:"grand_total"`
+	Status       string    `json:"status"` // draft, received
+	Notes        string    `json:"notes"`
+	CreatedAt    time.Time `json:"created_at"`
+	ReceivedAt   time.Time `json:"received_at,omitempty"`
+	SupplierName string    `json:"supplier_name,omitempty"`
+}
+
+type PurchaseItemRequest struct {
+	ProductID string  `json:"product_id" binding:"required"`
+	Quantity  int     `json:"quantity" binding:"required,min=1"`
+	CostPrice float64 `json:"cost_price" binding:"required"`
+}
+
+type CreatePurchaseRequest struct {
+	SupplierID  string                `json:"supplier_id"`
+	ReferenceNo string                `json:"reference_no" binding:"required"`
+	Status      string                `json:"status"` // draft or received
+	Notes       string                `json:"notes"`
+	Items       []PurchaseItemRequest `json:"items" binding:"required,min=1"`
+	// Simple totals calculation expected from backend usually, but can accept from FE or calc
+}
+
+type StockLedger struct {
+	ID          string    `json:"id"`
+	ProductID   string    `json:"product_id"`
+	RefType     string    `json:"ref_type"`
+	RefID       string    `json:"ref_id"`
+	QtyChange   int       `json:"qty_change"`
+	QtyAfter    int       `json:"qty_after"`
+	Note        string    `json:"note"`
+	CreatedAt   time.Time `json:"created_at"`
+	ProductName string    `json:"product_name,omitempty"`
+}
+
+type AdjustmentRequest struct {
+	Reason string                  `json:"reason" binding:"required"`
+	Notes  string                  `json:"notes"`
+	Items  []AdjustmentItemRequest `json:"items" binding:"required,min=1"`
+}
+
+type AdjustmentItemRequest struct {
+	ProductID string `json:"product_id" binding:"required"`
+	QtyChange int    `json:"qty_change" binding:"required"` // Can be negative
+}
+
+type SaleReturnRequest struct {
+	SaleID string              `json:"sale_id" binding:"required"`
+	Reason string              `json:"reason"`
+	Items  []ReturnItemRequest `json:"items" binding:"required"`
+}
+
+type PurchaseReturnRequest struct {
+	PurchaseID string              `json:"purchase_id" binding:"required"`
+	Reason     string              `json:"reason"`
+	Items      []ReturnItemRequest `json:"items" binding:"required"`
+}
+
+type ReturnItemRequest struct {
+	ProductID string `json:"product_id" binding:"required"`
+	Quantity  int    `json:"quantity" binding:"required,min=1"`
 }
 
 // ... Previous Models (Keep them to avoid breaking compilation) ...
