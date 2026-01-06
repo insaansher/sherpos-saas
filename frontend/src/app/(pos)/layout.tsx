@@ -12,6 +12,11 @@ export default function POSLayout({
 }) {
     return (
         <html lang="en">
+            <head>
+                <link rel="manifest" href="/manifest.json" />
+                <meta name="theme-color" content="#000000" />
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+            </head>
             <body className={`${inter.className} bg-gray-100 h-screen w-screen overflow-hidden flex flex-col`}>
                 <QueryProvider>
                     <AuthGate allowedRoles={['owner', 'manager', 'cashier']}>

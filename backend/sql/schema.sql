@@ -303,3 +303,12 @@ CREATE TABLE IF NOT EXISTS purchase_return_items (
     product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
     quantity INT NOT NULL
 );
+- -   P h a s e   6 :   O f f l i n e   P O S   S y n c   M a p  
+ C R E A T E   T A B L E   I F   N O T   E X I S T S   o f f l i n e _ s y n c _ m a p   (  
+         t e n a n t _ i d   U U I D   R E F E R E N C E S   t e n a n t s ( i d )   O N   D E L E T E   C A S C A D E   N O T   N U L L ,  
+         l o c a l _ s a l e _ i d   U U I D   N O T   N U L L ,  
+         s e r v e r _ s a l e _ i d   U U I D   R E F E R E N C E S   s a l e s ( i d )   O N   D E L E T E   C A S C A D E   N O T   N U L L ,  
+         c r e a t e d _ a t   T I M E S T A M P   W I T H   T I M E   Z O N E   D E F A U L T   C U R R E N T _ T I M E S T A M P ,  
+         U N I Q U E ( t e n a n t _ i d ,   l o c a l _ s a l e _ i d )  
+ ) ;  
+ 

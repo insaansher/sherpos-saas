@@ -4,6 +4,8 @@ import { useCartStore } from "./useCartStore";
 import { posApi } from "./posApi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useOfflineSync } from "@/hooks/use-offline-sync";
+import { queueOfflineSale } from "@/lib/db";
 import clsx from "clsx";
 import { Trash2, Plus, Minus, CreditCard, Banknote } from "lucide-react";
 
@@ -23,13 +25,50 @@ export default function CartPanel() {
     const changeDue = Math.max(0, state.paymentReceived - grandTotal);
     const canCheckout = state.items.length > 0 && state.paymentReceived >= grandTotal;
 
+    const { isOnline } = useOfflineSync();
+
     const checkoutMutation = useMutation({
-        mutationFn: () => posApi.createSale({
-            items: state.items.map(i => ({ product_id: i.id, quantity: i.quantity })),
-            discount_amount: state.discount,
-            payment_method: state.paymentMethod,
-            payment_received: state.paymentReceived
-        }),
+        mutationFn: async () => {
+            // Helper to queue offline
+            const doOfflineQueue = async () => {
+                // const { queueOfflineSale } = await import("@/lib/db");
+                const localId = crypto.randomUUID();
+                const offlineSale = {
+                    local_sale_id: localId,
+                    created_at: new Date().toISOString(),
+                    items: state.items.map(i => ({ product_id: i.id, quantity: i.quantity })),
+                    discount_amount: state.discount,
+                    payment_method: state.paymentMethod,
+                    payment_received: state.paymentReceived,
+                    computed_totals: { grand_total: grandTotal },
+                    status: "queued"
+                };
+                await queueOfflineSale(offlineSale);
+                return { ...offlineSale, invoice_number: `OFF-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${localId.slice(0, 4)}`, final_amount: grandTotal, isOffline: true };
+            };
+
+            // Reactive Offline Check
+            if (!isOnline && !navigator.onLine) {
+                return doOfflineQueue();
+            }
+
+            try {
+                return await posApi.createSale({
+                    items: state.items.map(i => ({ product_id: i.id, quantity: i.quantity })),
+                    discount_amount: state.discount,
+                    payment_method: state.paymentMethod,
+                    payment_received: state.paymentReceived
+                });
+            } catch (err: any) {
+                // If network error (no response) or 503, fallback to offline
+                // Axios network error usually has err.code === "ERR_NETWORK" or !err.response
+                if (err.code === "ERR_NETWORK" || !err.response || err.response.status >= 500) {
+                    console.warn("API Failed, falling back to offline queue", err);
+                    return doOfflineQueue();
+                }
+                throw err;
+            }
+        },
         onSuccess: (data) => {
             setLastInvoice(data);
             clearCart();

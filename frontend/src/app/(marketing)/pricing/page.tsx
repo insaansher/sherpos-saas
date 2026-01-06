@@ -36,7 +36,7 @@ export default function PricingPage() {
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {plans?.map((plan) => (
                         <div key={plan.id} className="relative bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-shadow flex flex-col">
-                            {plan.package === 'advanced' && (
+                            {plan.package_type === 'advanced' && (
                                 <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl uppercase tracking-wider">
                                     Recommended
                                 </div>
@@ -46,20 +46,20 @@ export default function PricingPage() {
                                 <span className="text-4xl font-extrabold text-gray-900">
                                     {currency === 'USD' ? '$' : 'Rs.'}{plan.price}
                                 </span>
-                                <span className="text-gray-500 font-medium">/{plan.duration === '2y' ? '2 yrs' : plan.duration.replace('ly', '')}</span>
+                                <span className="text-gray-500 font-medium">/{plan.duration_type === '2y' ? '2 yrs' : plan.duration_type.replace('ly', '')}</span>
                             </div>
 
                             <ul className="space-y-4 mb-8 flex-1">
                                 <FeatureItem enabled={true} text="POS System" />
                                 <FeatureItem enabled={true} text="Inventory Management" />
-                                <FeatureItem enabled={plan.features.multi_branch} text="Multi-Branch Support" />
-                                <FeatureItem enabled={plan.features.stock} text="Stock Transfers" />
-                                <FeatureItem enabled={plan.features.reports} text="Advanced Reporting" />
+                                <FeatureItem enabled={!!plan.features.multi_branch} text="Multi-Branch Support" />
+                                <FeatureItem enabled={!!plan.features.stock} text="Stock Transfers" />
+                                <FeatureItem enabled={!!plan.features.reports} text="Advanced Reporting" />
                             </ul>
 
                             <a href="/register" className={clsx(
                                 "block w-full py-3 rounded-xl font-bold text-center transition-colors",
-                                plan.package === 'advanced'
+                                plan.package_type === 'advanced'
                                     ? "bg-blue-600 text-white hover:bg-blue-700"
                                     : "bg-gray-50 text-gray-900 hover:bg-gray-100 border border-gray-200"
                             )}>

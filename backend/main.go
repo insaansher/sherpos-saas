@@ -79,6 +79,7 @@ func main() {
 				pos.GET("/products", handlers.GetPOSProducts)
 				pos.POST("/sales", handlers.CreateSale)
 				pos.GET("/sales/:id", handlers.GetSale)
+				pos.POST("/offline-sync/sales", handlers.SyncOfflineSale)
 			}
 
 			// PHASE 5: INVENTORY & OPS
