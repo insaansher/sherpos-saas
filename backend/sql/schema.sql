@@ -119,3 +119,74 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- PHASE 4: CORE POS ENGINE ---
+
+-- 11. Products
+CREATE TABLE IF NOT EXISTS products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    sku VARCHAR(100) NOT NULL, -- Unique per tenant logic handled in app or composite index
+    barcode VARCHAR(100),
+    price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    cost_price NUMERIC(12, 2) DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, sku)
+);
+
+-- 12. Product Variants (Simplified for Core, often 1-1 with product if no variants)
+CREATE TABLE IF NOT EXISTS product_variants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(255) NOT NULL, -- e.g. "Size L, Red"
+    sku VARCHAR(100),
+    barcode VARCHAR(100),
+    price_override NUMERIC(12, 2), -- If null, use product price
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 13. Inventory Stock
+CREATE TABLE IF NOT EXISTS inventory_stock (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    variant_id UUID REFERENCES product_variants(id) ON DELETE CASCADE, -- Nullable if no variant
+    branch_id UUID, -- Null for now (Phase 4 Core), or future proof
+    quantity INT NOT NULL DEFAULT 0, 
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, product_id, variant_id) -- Simple constraints
+);
+
+-- 14. Sales
+CREATE TABLE IF NOT EXISTS sales (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
+    invoice_number VARCHAR(50) NOT NULL, -- e.g. INV-2023-00001
+    total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    discount_amount NUMERIC(12, 2) DEFAULT 0,
+    tax_amount NUMERIC(12, 2) DEFAULT 0,
+    final_amount NUMERIC(12, 2) NOT NULL,
+    payment_method VARCHAR(50) DEFAULT 'cash',
+    payment_received NUMERIC(12, 2) DEFAULT 0,
+    change_due NUMERIC(12, 2) DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'completed', -- completed, refunded, void
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 15. Sale Items
+CREATE TABLE IF NOT EXISTS sale_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sale_id UUID REFERENCES sales(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+    variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
+    product_name VARCHAR(255) NOT NULL, -- Snapshot
+    quantity INT NOT NULL,
+    unit_price NUMERIC(12, 2) NOT NULL,
+    total_price NUMERIC(12, 2) NOT NULL
+);

@@ -8,18 +8,18 @@ A modern SaaS Point of Sale system built with Next.js and Go.
 - `backend/`: Go (Gin Framework)
 - `docs/`: Documentation
 
-## Phase 2: Authentication & Onboarding (Security Updated)
+## Phase 4: Core POS Engine & Sales (Beta)
 
 ### Status
-- **Auth**: JWT in HttpOnly Cookies + CSRF Protection + DB Revalidation
-- **Onboarding**: Check enforced before POS access
-- **Isolation**: Strict Platform Admin vs Tenant User separation
+- **POS UI**: `/pos` route (dedicated layout) with Product Grid, Cart, Discount, and Checkout.
+- **Backend**: Transactional sales, stock management, invoice generation (`INV-YYYY-XXXXXX`).
+- **Phase 3**: Admin Plan Management (`/admin/plans`) fully editable.
 
 ### Getting Started
 
 #### 1. Database
 Ensure PostgreSQL is running.
-Run the SQL in `backend/sql/schema.sql`.
+Run the complete SQL schema from `backend/sql/schema.sql` to create new tables (`products`, `sales`, etc.).
 
 #### 2. Backend
 ```powershell
@@ -28,6 +28,7 @@ go mod tidy
 go run main.go
 ```
 *Server runs on port 8080*
+*Auto-seeds demo products if none exist.*
 
 #### 3. Frontend
 ```powershell
@@ -37,24 +38,23 @@ npm run dev
 ```
 *App runs on port 3000*
 
-### Testing Security (Isolation)
-1. **Register User**: Create a normal tenant (e.g. coffee-shop).
-   - Access `/app/dashboard` -> OK.
-   - Access `/admin` -> Redirects to Dashboard (Blocked).
-   
-2. **Promote to Admin**:
-   - Manually in DB: `UPDATE users SET role='platform_admin', tenant_id=NULL WHERE email='your@email.com';`
-   - Logout and Login again.
-   
-3. **Verify Admin Access**:
-   - Access `/admin` -> OK.
-   - Access `/app/dashboard` -> Redirects to `/admin` (Blocked).
-   - Access `/pos` -> Redirects to `/admin` (Blocked).
-   - Access API `/api/v1/pos/ping` -> 403 Forbidden.
+### Testing Guide
 
-### Auth Flow
-1. **Register**: `/register` -> Creates Tenant & Owner User.
-2. **Login**: `/login` -> Sets HttpOnly Cookie.
-3. **App**: `/app/dashboard` -> Protected (redirects to login).
-4. **Onboarding**: Redirects to `/app/onboarding` if tenant setup incomplete.
-5. **POS**: `/pos` -> Blocked until onboarding complete.
+#### Admin Plans (Phase 3)
+1. **Login** as Platform Admin.
+2. Go to `/admin/plans`.
+3. Create, edit (prices/limits), or clone plans. Changes reflect on `/pricing`.
+
+#### POS Sales (Phase 4)
+1. **Login** as a Tenant User (e.g., `owner@store.com`).
+2. Navigate to `/pos`.
+3. **Products**: You should see demo products (Coffee, Tea, etc.) seeded automatically.
+4. **Sale**: 
+   - Click products to add to cart.
+   - Adjust quantity (stock is enforced).
+   - Click "PAY" to complete sale.
+   - A success invoice modal will appear.
+
+### Security Note
+- **POS Access**: Strictly limited to `owner`, `manager`, `cashier` roles.
+- **Stock**: Decrements atomically. Prevented from going below 0 via API logic.

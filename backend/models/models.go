@@ -5,7 +5,53 @@ import (
 	"time"
 )
 
-// --- Auth & User Models --- (as corrected previously)
+// --- Phase 4: POS Models ---
+
+type Product struct {
+	ID            string  `json:"id"`
+	TenantID      string  `json:"tenant_id"`
+	Name          string  `json:"name"`
+	Description   string  `json:"description"`
+	Sku           string  `json:"sku"`
+	Barcode       string  `json:"barcode"`
+	Price         float64 `json:"price"`
+	StockQuantity int     `json:"stock_quantity"` // Aggregated from inventory
+	IsActive      bool    `json:"is_active"`
+}
+
+type SaleItemRequest struct {
+	ProductID string  `json:"product_id" binding:"required"`
+	VariantID string  `json:"variant_id"` // Optional
+	Quantity  int     `json:"quantity" binding:"required,min=1"`
+	UnitPrice float64 `json:"unit_price"` // Can be overridden or validated
+}
+
+type CreateSaleRequest struct {
+	Items           []SaleItemRequest `json:"items" binding:"required,min=1"`
+	DiscountAmount  float64           `json:"discount_amount"`
+	PaymentMethod   string            `json:"payment_method" binding:"required"`
+	PaymentReceived float64           `json:"payment_received"`
+}
+
+type Sale struct {
+	ID             string     `json:"id"`
+	InvoiceNumber  string     `json:"invoice_number"`
+	TotalAmount    float64    `json:"total_amount"`
+	DiscountAmount float64    `json:"discount_amount"`
+	FinalAmount    float64    `json:"final_amount"`
+	PaymentMethod  string     `json:"payment_method"`
+	CreatedAt      time.Time  `json:"created_at"`
+	Items          []SaleItem `json:"items,omitempty"`
+}
+
+type SaleItem struct {
+	ProductName string  `json:"product_name"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price"`
+	TotalPrice  float64 `json:"total_price"`
+}
+
+// ... Previous Models (Keep them to avoid breaking compilation) ...
 
 type Tenant struct {
 	ID                   string    `json:"id"`
@@ -50,22 +96,19 @@ type OnboardingRequest struct {
 	Confirmed            bool   `json:"confirmed" binding:"required"`
 }
 
-// --- Plans & Billing Models ---
-
 type Plan struct {
-	ID           string    `json:"id"`
-	Code         string    `json:"code"`
-	Name         string    `json:"name"`
-	PackageType  string    `json:"package_type"`  // basic, advanced
-	DurationType string    `json:"duration_type"` // monthly, annual, 4y...
-	IsActive     bool      `json:"is_active"`
-	IsPublic     bool      `json:"is_public"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-
-	Prices   []PlanPrice  `json:"prices,omitempty"`
-	Limits   PlanLimits   `json:"limits,omitempty"`
-	Features PlanFeatures `json:"features,omitempty"`
+	ID           string       `json:"id"`
+	Code         string       `json:"code"`
+	Name         string       `json:"name"`
+	PackageType  string       `json:"package_type"`
+	DurationType string       `json:"duration_type"`
+	IsActive     bool         `json:"is_active"`
+	IsPublic     bool         `json:"is_public"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	Prices       []PlanPrice  `json:"prices,omitempty"`
+	Limits       PlanLimits   `json:"limits,omitempty"`
+	Features     PlanFeatures `json:"features,omitempty"`
 }
 
 type PlanPrice struct {
@@ -102,8 +145,6 @@ type ChoosePlanRequest struct {
 	PlanID   string `json:"plan_id" binding:"required"`
 	Currency string `json:"currency" binding:"required"`
 }
-
-// Admin Requests
 
 type CreatePlanRequest struct {
 	Code         string       `json:"code" binding:"required"`

@@ -19,6 +19,7 @@ func main() {
 
 	db.Connect()
 	db.SeedPlans()
+	db.SeedDemoData() // New Seed call
 
 	r := gin.Default()
 
@@ -33,10 +34,7 @@ func main() {
 	r.Use(middleware.Logger())
 
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "up",
-			"db":     db.Status(),
-		})
+		c.JSON(200, gin.H{"status": "up", "db": db.Status()})
 	})
 
 	v1 := r.Group("/api/v1")
@@ -58,6 +56,7 @@ func main() {
 		tenantRoutes := api.Group("/")
 		tenantRoutes.Use(middleware.RequireTenantUser())
 		{
+			// ... existing billing/onboarding ...
 			billing := tenantRoutes.Group("/billing")
 			billing.Use(middleware.RequireRole("owner"))
 			{
@@ -70,24 +69,28 @@ func main() {
 				onboarding.GET("/status", handlers.OnboardingStatus)
 				onboarding.POST("/complete", handlers.CompleteOnboarding)
 			}
+
+			// POS ROUTES (Phase 4)
 			pos := tenantRoutes.Group("/pos")
 			pos.Use(middleware.EnsureOnboarding())
 			pos.Use(middleware.RequireRole("owner", "manager", "cashier"))
 			{
 				pos.GET("/ping", func(c *gin.Context) { c.JSON(200, gin.H{"message": "POS Ready"}) })
+				pos.GET("/products", handlers.GetPOSProducts)
+				pos.POST("/sales", handlers.CreateSale)
+				pos.GET("/sales/:id", handlers.GetSale)
 			}
 		}
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.RequirePlatformAdmin())
 		{
+			// ... admin routes ...
 			admin.GET("/dashboard", handlers.AdminDashboard)
 			admin.GET("/plans", handlers.AdminListPlans)
 			admin.POST("/plans", handlers.AdminCreatePlan)
-
-			// New Update Endpoints
 			admin.PUT("/plans/:id", handlers.AdminUpdatePlanMeta)
-			admin.PUT("/plans/:id/visibility", handlers.AdminUpdatePlanVisibility) // Specific PUTs before generic if route overlap? No, discrete paths.
+			admin.PUT("/plans/:id/visibility", handlers.AdminUpdatePlanVisibility)
 			admin.PUT("/plans/:id/prices", handlers.AdminUpdatePlanPrices)
 			admin.PUT("/plans/:id/limits", handlers.AdminUpdatePlanLimits)
 			admin.PUT("/plans/:id/features", handlers.AdminUpdatePlanFeatures)
