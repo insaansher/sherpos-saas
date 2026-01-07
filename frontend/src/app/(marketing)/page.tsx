@@ -1,16 +1,40 @@
-export default function HomePage() {
-    return (
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <h1 className="text-6xl font-extrabold text-gray-900 mb-6 tracking-tight">
-                The POS system for <span className="text-blue-600">modern commerce</span>
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mb-10">
-                SherPOS unifies your online and offline sales in one beautiful, reliable SaaS platform.
-            </p>
-            <div className="flex gap-4">
-                <a href="/pricing" className="bg-gray-900 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-800 transition">View Pricing</a>
-                <a href="/features" className="bg-white text-gray-900 border border-gray-300 px-8 py-3 rounded-lg font-semibold hover:bg-gray-50 transition">Learn More</a>
+"use client";
+
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { SectionRenderer } from "@/components/website/section-renderer";
+import { Loader2 } from "lucide-react";
+
+export default function LandingPage() {
+    const { data, isLoading, error } = useQuery({
+        queryKey: ["public", "page", "home"],
+        queryFn: async () => {
+            const res = await api.get("/public/cms/page/home");
+            return res.data;
+        }
+    });
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="animate-spin text-primary" size={40} />
             </div>
-        </div>
+        );
+    }
+
+    if (error || !data) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
+                <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
+                <p className="text-muted-foreground">We couldn't load the homepage. Please try again later.</p>
+            </div>
+        );
+    }
+
+    return (
+        <main className="min-h-screen h-full w-full">
+            <SectionRenderer sections={data.sections} />
+        </main>
     );
 }

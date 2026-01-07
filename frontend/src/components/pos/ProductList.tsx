@@ -1,11 +1,15 @@
 "use client";
 
+import React from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import { posApi } from "./posApi";
 import { useCartStore } from "./useCartStore";
 import { useState } from "react";
-import clsx from "clsx";
-import { Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Search, Loader2, PackageOpen, LayoutGrid, ListFilter } from "lucide-react";
+import { Input } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/primitives";
 
 export default function ProductList() {
     const [search, setSearch] = useState("");
@@ -16,58 +20,97 @@ export default function ProductList() {
         queryFn: () => posApi.getProducts(search),
     });
 
-    if (error) return <div className="p-4 text-red-500 bg-red-100 rounded">Error loading products.</div>;
+    if (error) return (
+        <div className="flex flex-col items-center justify-center h-full text-destructive p-8 bg-destructive/5 rounded-xl border border-destructive/20 m-4">
+            <p className="font-semibold text-lg">Failed to load catalog</p>
+            <p className="text-sm opacity-80 mt-1">Check internet connection or try again.</p>
+        </div>
+    );
 
     return (
-        <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 border-r border-slate-300 dark:border-slate-800">
+        <div className="flex flex-col h-full bg-muted/20">
             {/* Header / Search */}
-            <div className="p-4 bg-white dark:bg-slate-900 shadow-sm z-10">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <input
-                        type="text"
-                        placeholder="Search products by name, SKU or barcode..."
-                        className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        autoFocus
-                    />
+            <header className="p-4 bg-background/80 backdrop-blur-md border-b sticky top-0 z-10 space-y-4">
+                <div className="flex items-center gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                        <Input
+                            type="text"
+                            placeholder="Search products..."
+                            className="w-full h-12 pl-12 pr-4 text-lg rounded-full shadow-sm bg-muted/50 border-transparent focus:bg-background focus:border-primary transition-all"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
                 </div>
-            </div>
+            </header>
 
             {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
                 {isLoading ? (
-                    <div className="flex justify-center items-center h-40 text-slate-500">Loading catalog...</div>
+                    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-4">
+                        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                        <p className="text-sm font-medium animate-pulse">Loading collection...</p>
+                    </div>
                 ) : (
-                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                        {products?.length === 0 && <div className="col-span-full text-center text-slate-500 py-10">No products found.</div>}
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-24">
+                        {products?.length === 0 && (
+                            <div className="col-span-full flex flex-col items-center justify-center py-20 text-muted-foreground opacity-50">
+                                <PackageOpen size={48} strokeWidth={1} />
+                                <p className="mt-4 font-medium text-lg">No products found</p>
+                                <p className="text-sm">Try searching for a different item</p>
+                            </div>
+                        )}
 
-                        {products?.map(product => (
-                            <button
-                                key={product.id}
-                                onClick={() => addItem(product)}
-                                disabled={product.stock_quantity <= 0}
-                                className={clsx(
-                                    "flex flex-col justify-between p-4 rounded-xl border text-left transition-all active:scale-95 h-36 relative overflow-hidden group",
-                                    product.stock_quantity > 0
-                                        ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:shadow-md cursor-pointer"
-                                        : "bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800 opacity-60 cursor-not-allowed"
-                                )}
-                            >
-                                <div className="z-10">
-                                    <h3 className="font-bold text-slate-800 dark:text-slate-100 leading-tight line-clamp-2">{product.name}</h3>
-                                    <div className="text-xs text-slate-500 font-mono mt-1">{product.sku}</div>
-                                </div>
-                                <div className="flex justify-between items-end mt-2 z-10">
-                                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">${product.price.toFixed(2)}</div>
-                                    <div className={clsx("text-xs font-bold px-1.5 py-0.5 rounded", product.stock_quantity > 0 ? "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300" : "bg-red-100 text-red-600")}>
-                                        {product.stock_quantity} Left
+                        {products?.map(product => {
+                            const hasStock = product.stock_quantity > 0;
+                            return (
+                                <button
+                                    key={product.id}
+                                    onClick={() => addItem(product)}
+                                    disabled={!hasStock}
+                                    className={cn(
+                                        "group relative flex flex-col justify-between p-5 rounded-2xl border text-left transition-all duration-300 h-[180px] hover:shadow-xl active:scale-95 outline-none focus-visible:ring-4 ring-primary/20",
+                                        hasStock
+                                            ? "bg-card border-border hover:border-primary/50 hover:-translate-y-1"
+                                            : "bg-muted/50 border-transparent opacity-60 cursor-not-allowed"
+                                    )}
+                                >
+                                    <div className="w-full">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase bg-muted px-2 py-0.5 rounded-full">
+                                                ID: {product.sku || 'N/A'}
+                                            </div>
+                                        </div>
+                                        <h3 className={cn(
+                                            "font-bold text-foreground leading-snug line-clamp-2",
+                                            product.name.length < 20 ? "text-lg" : "text-base"
+                                        )}>
+                                            {product.name}
+                                        </h3>
                                     </div>
-                                </div>
-                                {/* Click Ripple Effect logic could go here, omitting for simple CSS hover */}
-                            </button>
-                        ))}
+
+                                    <div className="flex justify-between items-end mt-4">
+                                        <div className="text-xl font-bold text-primary tracking-tight">
+                                            ${product.price.toFixed(2)}
+                                        </div>
+
+                                        <div className={cn(
+                                            "text-xs font-bold px-2 py-1 rounded-md",
+                                            hasStock
+                                                ? "bg-success/10 text-success"
+                                                : "bg-destructive/10 text-destructive"
+                                        )}>
+                                            {product.stock_quantity} left
+                                        </div>
+                                    </div>
+
+                                    {/* Decoration */}
+                                    <div className="absolute inset-0 rounded-2xl ring-2 ring-primary opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                </button>
+                            )
+                        })}
                     </div>
                 )}
             </div>

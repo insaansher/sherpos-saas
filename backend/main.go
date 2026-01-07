@@ -21,6 +21,7 @@ func main() {
 	db.Connect()
 	db.SeedPlans()
 	db.SeedDemoData() // New Seed call
+	db.SeedCMS()      // New CMS Seed
 
 	// Start background workers
 	go workers.StartSubscriptionWorker()
@@ -28,12 +29,21 @@ func main() {
 
 	r := gin.Default()
 
+	// Security: Set trusted proxies for local development
+	err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	if err != nil {
+		log.Printf("Warning: Failed to set trusted proxies: %v", err)
+	}
+
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost:3000"}
 	config.AllowCredentials = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-CSRF-Token", "X-Request-ID"}
 	r.Use(cors.New(config))
+
+	// Static Serving
+	r.Static("/uploads", "./uploads")
 
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
@@ -43,9 +53,10 @@ func main() {
 	})
 
 	v1 := r.Group("/api/v1")
-	v1.GET("/public/plans", handlers.PublicPlans)
+	v1.GET("/public/plans", middleware.RateLimitMiddleware(5, 10), handlers.PublicPlans)
 
 	auth := v1.Group("/auth")
+	auth.Use(middleware.RateLimitMiddleware(3, 5)) // Strict rate limit on auth
 	{
 		auth.POST("/register", handlers.Register)
 		auth.POST("/login", handlers.Login)
@@ -141,9 +152,42 @@ func main() {
 
 			// Tenants
 			admin.GET("/tenants", handlers.AdminListTenants)
+			admin.GET("/tenants/:id", handlers.AdminGetTenant)
+
+			// Platform
+			admin.GET("/users", handlers.AdminListPlatformUsers)
+			admin.GET("/dashboard/stats", handlers.AdminGetDashboardStats)
+			admin.GET("/notifications", handlers.AdminGetNotifications)
+			admin.GET("/data-governance", handlers.AdminGetDataGovernance)
 
 			// Phase 7: Subscription Override
 			admin.PUT("/tenants/:id/subscription-status", handlers.AdminSetSubscriptionStatus)
+
+			// CMS Admin
+			cms := admin.Group("/cms")
+			{
+				cms.GET("/pages", handlers.AdminCMSListPage)
+				cms.POST("/pages", handlers.AdminCMSCreatePage)
+				cms.PUT("/pages/:id", handlers.AdminCMSUpdatePage)
+				cms.GET("/sections", handlers.AdminCMSListSections)
+				cms.POST("/sections", handlers.AdminCMSCreateSection)
+				cms.PUT("/sections/:id", handlers.AdminCMSUpdateSection)
+				cms.DELETE("/sections/:id", handlers.AdminCMSDeleteSection)
+				cms.GET("/media", handlers.AdminCMSListMedia)
+				cms.POST("/media/upload", handlers.AdminCMSUploadMedia)
+				cms.GET("/leads", handlers.AdminCMSListLeads)
+				cms.GET("/contact-messages", handlers.AdminCMSListContactMessages)
+			}
+		}
+
+		// Public CMS
+		pCms := v1.Group("/public/cms")
+		{
+			pCms.GET("/page/:slug", handlers.PublicGetPage)
+			pCms.GET("/nav", handlers.PublicGetNav)
+			pCms.GET("/blog", handlers.PublicListBlog)
+			pCms.POST("/contact", handlers.PublicPostContact)
+			pCms.POST("/newsletter", handlers.PublicPostNewsletter)
 		}
 	}
 

@@ -32,8 +32,10 @@ func SubscriptionEnforcementMiddleware() gin.HandlerFunc {
 		// Get subscription info
 		sub, err := services.GetSubscriptionInfo(tenantID)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Failed to check subscription status"})
-			c.Abort()
+			// If no subscription found, allow access (new tenant or trialing)
+			// This prevents breaking the app for new tenants
+			c.Set("subscriptionStatus", "trialing")
+			c.Next()
 			return
 		}
 

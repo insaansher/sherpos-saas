@@ -24,10 +24,10 @@ export default function PlanEditor({ plan, isOpen, onClose, isCreating }: PlanEd
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
-            <div className="w-[600px] bg-slate-900 h-full shadow-2xl overflow-y-auto border-l border-slate-700 p-6">
+            <div className="w-[600px] bg-background h-full shadow-2xl overflow-y-auto border-l border-border p-6 animate-slide-in">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-white">{isCreating ? "Create New Plan" : `Edit ${plan?.name}`}</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white">Close</button>
+                    <h2 className="text-xl font-bold text-foreground">{isCreating ? "Create New Plan" : `Edit ${plan?.name}`}</h2>
+                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground">Close</button>
                 </div>
 
                 {isCreating ? (
@@ -36,12 +36,12 @@ export default function PlanEditor({ plan, isOpen, onClose, isCreating }: PlanEd
                     plan && (
                         <div className="space-y-8">
                             {/* Tabs */}
-                            <div className="flex border-b border-slate-700 space-x-4 mb-4">
+                            <div className="flex border-b border-border space-x-4 mb-4">
                                 {['meta', 'prices', 'limits', 'features', 'visibility'].map(tab => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
-                                        className={clsx("pb-2 capitalize text-sm font-medium", activeTab === tab ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white")}
+                                        className={clsx("pb-2 capitalize text-sm font-medium transition-colors", activeTab === tab ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground")}
                                     >
                                         {tab}
                                     </button>
@@ -80,14 +80,14 @@ function CreatePlanForm({ onClose, createFn }: any) {
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <input {...register("name")} placeholder="Plan Name" className="w-full bg-slate-800 border-slate-700 text-white rounded p-2" required />
-            <input {...register("code")} placeholder="Unique Code (e.g. basic_monthly)" className="w-full bg-slate-800 border-slate-700 text-white rounded p-2" required />
+            <input {...register("name")} placeholder="Plan Name" className="w-full bg-input border-border text-foreground rounded-md p-2" required />
+            <input {...register("code")} placeholder="Unique Code (e.g. basic_monthly)" className="w-full bg-input border-border text-foreground rounded-md p-2" required />
             <div className="grid grid-cols-2 gap-2">
-                <select {...register("package_type")} className="bg-slate-800 border-slate-700 text-white rounded p-2">
+                <select {...register("package_type")} className="bg-input border-border text-foreground rounded-md p-2">
                     <option value="basic">Basic</option>
                     <option value="advanced">Advanced</option>
                 </select>
-                <select {...register("duration_type")} className="bg-slate-800 border-slate-700 text-white rounded p-2">
+                <select {...register("duration_type")} className="bg-input border-border text-foreground rounded-md p-2">
                     <option value="monthly">Monthly</option>
                     <option value="annual">Annual</option>
                     <option value="lifetime">Lifetime</option>
@@ -103,8 +103,8 @@ function MetaForm({ plan, updateFn }: any) {
     const { register, handleSubmit } = useForm({ defaultValues: { name: plan.name, code: plan.code, package_type: plan.package_type, duration_type: plan.duration_type } });
     return (
         <form onSubmit={handleSubmit((data) => updateFn({ id: plan.id, data }))} className="space-y-4">
-            <input {...register("name")} className="w-full bg-slate-800 border-slate-700 text-white rounded p-2" />
-            <input {...register("code")} className="w-full bg-slate-800 border-slate-700 text-white rounded p-2" />
+            <input {...register("name")} className="w-full bg-input border-border text-foreground rounded-md p-2" />
+            <input {...register("code")} className="w-full bg-input border-border text-foreground rounded-md p-2" />
             <div className="grid grid-cols-2 gap-2">
                 <select {...register("package_type")} className="bg-slate-800 border-slate-700 text-white rounded p-2">
                     <option value="basic">Basic</option>

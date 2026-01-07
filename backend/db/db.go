@@ -33,6 +33,24 @@ func Connect() {
 	}
 
 	log.Println("Connected to Database")
+	Migrate()
+}
+
+func Migrate() {
+	files := []string{"sql/schema.sql", "sql/phase6_offline.sql", "sql/phase7_lifecycle.sql", "sql/cms.sql"}
+	for _, f := range files {
+		content, err := os.ReadFile(f)
+		if err != nil {
+			log.Printf("Warning: Could not read migration file %s: %v", f, err)
+			continue
+		}
+		_, err = DB.Exec(string(content))
+		if err != nil {
+			log.Printf("Migration Error in %s: %v", f, err)
+		} else {
+			log.Printf("Migration Successful: %s", f)
+		}
+	}
 }
 
 func Status() string {

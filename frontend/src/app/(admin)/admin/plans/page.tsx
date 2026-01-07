@@ -2,9 +2,12 @@
 
 import { useAdminPlans, useAdminPlanMutations } from "@/hooks/use-admin-plans";
 import PlanEditor from "@/components/admin/plan-editor";
-import clsx from "clsx";
 import { useState } from "react";
 import { Plan } from "@/hooks/use-plans";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge, Button, Card, CardContent } from "@/components/ui/primitives";
+import { Edit2, Copy, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function AdminPlansPage() {
     const { data: plans, isLoading } = useAdminPlans();
@@ -15,8 +18,6 @@ export default function AdminPlansPage() {
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-
-    if (isLoading) return <div className="p-8 text-white">Loading plans...</div>;
 
     const basicPlans = plans?.filter(p => p.package_type === 'basic') || [];
     const advancedPlans = plans?.filter(p => p.package_type === 'advanced' || p.package_type === 'advanced_growth') || [];
@@ -43,91 +44,94 @@ export default function AdminPlansPage() {
     };
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-white">Manage Plans</h1>
-                <button
-                    onClick={handleCreate}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition"
-                >
-                    Create Plan
-                </button>
+        <div className="space-y-8 animate-fade-in">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Plans & Pricing</h1>
+                    <p className="text-muted-foreground">Manage subscription tiers and limits.</p>
+                </div>
+                <Button onClick={handleCreate} className="gap-2">
+                    <Plus size={16} /> Create Plan
+                </Button>
             </div>
 
-            <div className="mb-6 flex space-x-4 border-b border-slate-700">
+            <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
                 <button
                     onClick={() => setActiveTab('basic')}
-                    className={clsx("pb-3 px-1 font-medium text-sm transition", activeTab === 'basic' ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-slate-200")}
+                    className={cn(
+                        "px-4 py-2 rounded-md text-sm font-medium transition-all",
+                        activeTab === 'basic' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}
                 >
-                    Basic Plans ({basicPlans.length})
+                    Basic Plans
                 </button>
                 <button
                     onClick={() => setActiveTab('advanced')}
-                    className={clsx("pb-3 px-1 font-medium text-sm transition", activeTab === 'advanced' ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-slate-200")}
+                    className={cn(
+                        "px-4 py-2 rounded-md text-sm font-medium transition-all",
+                        activeTab === 'advanced' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}
                 >
-                    Advanced Plans ({advancedPlans.length})
+                    Advanced Plans
                 </button>
             </div>
 
-            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                <table className="w-full text-left text-sm text-slate-300">
-                    <thead className="bg-slate-900/50 text-slate-400 font-medium">
-                        <tr>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Code</th>
-                            <th className="p-4">Duration</th>
-                            <th className="p-4">USD Price</th>
-                            <th className="p-4">Active</th>
-                            <th className="p-4">Public</th>
-                            <th className="p-4">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {currentList.length === 0 ? (
-                            <tr>
-                                <td colSpan={7} className="p-8 text-center text-slate-500">
-                                    No plans found for this package. (Debug: Total plans fetched = {plans?.length})
-                                </td>
-                            </tr>
-                        ) : (
-                            currentList.map(plan => {
-                                const usdPrice = plan.prices?.find((p: any) => p.currency === 'USD');
-                                return (
-                                    <tr
-                                        key={plan.id}
-                                        onClick={() => handleEdit(plan)}
-                                        className="border-t border-slate-700 hover:bg-slate-700/50 transition cursor-pointer"
-                                    >
-                                        <td className="p-4 font-bold text-white">{plan.name}</td>
-                                        <td className="p-4 font-mono text-xs text-slate-400">{plan.code}</td>
-                                        <td className="p-4 capitalize">{plan.duration_type?.replace('ly', '')}</td>
-                                        <td className="p-4 font-mono">${usdPrice?.amount || '0'}</td>
-                                        <td className="p-4">
-                                            <span className={clsx("px-2 py-0.5 rounded text-xs", plan.is_active ? "text-green-400 bg-green-400/10" : "text-red-400 bg-red-400/10")}>
-                                                {plan.is_active ? 'Yes' : 'No'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={clsx("px-2 py-0.5 rounded text-xs", plan.is_public ? "text-blue-400 bg-blue-400/10" : "text-slate-400 bg-slate-400/10")}>
-                                                {plan.is_public ? 'Yes' : 'No'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 flex gap-2">
-                                            <button className="text-blue-400 hover:text-blue-300">Edit</button>
-                                            <button
-                                                onClick={(e) => handleClone(plan.id, e)}
-                                                className="text-slate-400 hover:text-slate-300"
-                                            >
-                                                Clone
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )
-                            })
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            <Card>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Code</TableHead>
+                                <TableHead>Duration</TableHead>
+                                <TableHead>USD Price</TableHead>
+                                <TableHead>Active</TableHead>
+                                <TableHead>Public</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading plans...</TableCell></TableRow>
+                            ) : currentList.length === 0 ? (
+                                <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No plans found.</TableCell></TableRow>
+                            ) : (
+                                currentList.map(plan => {
+                                    const usdPrice = plan.prices?.find((p: any) => p.currency === 'USD');
+                                    return (
+                                        <TableRow
+                                            key={plan.id}
+                                            onClick={() => handleEdit(plan)}
+                                            className="group cursor-pointer"
+                                        >
+                                            <TableCell className="font-medium">{plan.name}</TableCell>
+                                            <TableCell className="font-mono text-xs text-muted-foreground">{plan.code}</TableCell>
+                                            <TableCell className="capitalize">{plan.duration_type?.replace('ly', '')}</TableCell>
+                                            <TableCell className="font-mono">${usdPrice?.amount || '0'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={plan.is_active ? 'success' : 'destructive'}>
+                                                    {plan.is_active ? 'Active' : 'Inactive'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={plan.is_public ? 'outline' : 'secondary'}>
+                                                    {plan.is_public ? 'Public' : 'Hidden'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(plan)}><Edit2 size={16} /></Button>
+                                                    <Button variant="ghost" size="icon" onClick={(e) => handleClone(plan.id, e)}><Copy size={16} /></Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
             <PlanEditor
                 isOpen={editorOpen}

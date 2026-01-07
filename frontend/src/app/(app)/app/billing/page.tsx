@@ -1,59 +1,63 @@
 "use client";
 
-import { usePublicPlans, useTenantBilling, useChoosePlan } from "@/hooks/use-plans";
-import { useAuth } from "@/hooks/use-auth";
-import { useState } from "react";
-import clsx from "clsx";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, Badge } from "@/components/ui/primitives";
+import { Check, CreditCard } from "lucide-react";
 
 export default function BillingPage() {
-    const { tenant } = useAuth();
-    const { data: billing, isLoading: loadingBilling } = useTenantBilling();
-    const [currency, setCurrency] = useState(tenant?.currency || "USD"); // Default to tenant currency if set
-    const { data: plans } = usePublicPlans(currency);
-    const { mutate: choosePlan, isPending } = useChoosePlan();
-
-    if (loadingBilling) return <div>Loading...</div>;
-
     return (
-        <div>
-            <h1 className="text-2xl font-bold mb-6">Billing & Subscription</h1>
-
-            {/* Current Subscription Card */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-10">
-                <h2 className="text-lg font-semibold mb-4 text-gray-800">Current Plan</h2>
-                <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                        <div className="text-3xl font-bold text-blue-600">{billing?.plan_name || "Free Trial"}</div>
-                        <div className="text-sm text-gray-500 mt-1 uppercase tracking-wider font-semibold">{billing?.status}</div>
-                    </div>
-                    {billing?.end && (
-                        <div className="text-right">
-                            <div className="text-sm text-gray-500">Renews on</div>
-                            <div className="font-bold">{new Date(billing.end).toLocaleDateString()}</div>
-                        </div>
-                    )}
-                </div>
+        <div className="space-y-8 animate-fade-in max-w-5xl mx-auto py-8">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Billing & Plans</h1>
+                <p className="text-muted-foreground">Manage your subscription and payment methods.</p>
             </div>
 
-            <h2 className="text-lg font-semibold mb-4 text-gray-800">Available Plans</h2>
-            <div className="grid md:grid-cols-3 gap-6">
-                {plans?.map((plan) => (
-                    <div key={plan.id} className="bg-white border p-6 rounded-xl hover:shadow-lg transition">
-                        <div className="font-bold text-lg mb-2">{plan.name}</div>
-                        <div className="text-2xl font-bold mb-4">{currency === 'USD' ? '$' : 'Rs.'}{plan.price}</div>
-                        <button
-                            onClick={() => choosePlan({ plan_id: plan.id, currency })}
-                            disabled={isPending}
-                            className={clsx(
-                                "w-full py-2 rounded-lg font-semibold transition",
-                                billing?.plan_name === plan.name
-                                    ? "bg-green-100 text-green-700 cursor-default"
-                                    : "bg-blue-600 text-white hover:bg-blue-700"
-                            )}>
-                            {billing?.plan_name === plan.name ? "Current Plan" : "Switch Plan"}
-                        </button>
-                    </div>
-                ))}
+            <div className="grid md:grid-cols-2 gap-8">
+                <Card className="border-primary/50 bg-primary/5">
+                    <CardHeader>
+                        <Badge className="w-fit mb-2">Current Plan</Badge>
+                        <CardTitle className="text-2xl">Pro Plan</CardTitle>
+                        <CardDescription>Everything you need to grow.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="text-3xl font-bold">$29<span className="text-lg font-normal text-muted-foreground">/mo</span></div>
+                        <ul className="space-y-2 text-sm">
+                            <li className="flex items-center gap-2"><Check size={16} className="text-green-500" /> Unlimited Products</li>
+                            <li className="flex items-center gap-2"><Check size={16} className="text-green-500" /> Advanced Analytics</li>
+                            <li className="flex items-center gap-2"><Check size={16} className="text-green-500" /> 24/7 Support</li>
+                        </ul>
+                        <div className="pt-4">
+                            <Button className="w-full">Manage Subscription</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Invoices</CardTitle>
+                        <CardDescription>Recent billing history.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-muted p-2 rounded">
+                                            <CreditCard size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="font-medium">Invoice #INV-2024-00{i}</div>
+                                            <div className="text-xs text-muted-foreground">Jan {i}, 2026</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="font-bold">$29.00</div>
+                                        <div className="text-xs text-green-600 font-medium">Paid</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

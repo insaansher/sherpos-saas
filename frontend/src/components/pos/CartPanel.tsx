@@ -1,13 +1,16 @@
 "use client";
 
+import React from "react";
+
 import { useCartStore } from "./useCartStore";
 import { posApi } from "./posApi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useOfflineSync } from "@/hooks/use-offline-sync";
 import { queueOfflineSale } from "@/lib/db";
-import clsx from "clsx";
-import { Trash2, Plus, Minus, CreditCard, Banknote } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Trash2, Plus, Minus, CreditCard, Banknote, ShoppingCart, ArrowRight } from "lucide-react";
+import { Button, Input, Card } from "@/components/ui/primitives";
 
 export default function CartPanel() {
     const { state, removeItem, setQty, setDiscount, setPayment, clearCart } = useCartStore();
@@ -17,11 +20,8 @@ export default function CartPanel() {
 
     // Totals Logic
     const subtotal = state.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    // Assuming simple tax for now (e.g. 0% or handled in price). Prompt said "taxRate" in store but backend doesn't support tax logic yet. 
-    // I'll stick to 0 tax to match backend until Phase 5.
     const taxTotal = 0;
     const grandTotal = Math.max(0, subtotal + taxTotal - state.discount);
-
     const changeDue = Math.max(0, state.paymentReceived - grandTotal);
     const canCheckout = state.items.length > 0 && state.paymentReceived >= grandTotal;
 
@@ -29,9 +29,7 @@ export default function CartPanel() {
 
     const checkoutMutation = useMutation({
         mutationFn: async () => {
-            // Helper to queue offline
             const doOfflineQueue = async () => {
-                // const { queueOfflineSale } = await import("@/lib/db");
                 const localId = crypto.randomUUID();
                 const offlineSale = {
                     local_sale_id: localId,
@@ -47,7 +45,6 @@ export default function CartPanel() {
                 return { ...offlineSale, invoice_number: `OFF-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${localId.slice(0, 4)}`, final_amount: grandTotal, isOffline: true };
             };
 
-            // Reactive Offline Check
             if (!isOnline && !navigator.onLine) {
                 return doOfflineQueue();
             }
@@ -60,10 +57,7 @@ export default function CartPanel() {
                     payment_received: state.paymentReceived
                 });
             } catch (err: any) {
-                // If network error (no response) or 503, fallback to offline
-                // Axios network error usually has err.code === "ERR_NETWORK" or !err.response
                 if (err.code === "ERR_NETWORK" || !err.response || err.response.status >= 500) {
-                    console.warn("API Failed, falling back to offline queue", err);
                     return doOfflineQueue();
                 }
                 throw err;
@@ -89,147 +83,187 @@ export default function CartPanel() {
 
     if (lastInvoice) {
         return (
-            <div className="flex flex-col h-full bg-white dark:bg-slate-950 p-8 items-center justify-center text-center">
-                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 text-4xl">✓</div>
-                <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Sale Complete</h2>
-                <p className="text-slate-500 mb-6">Invoice: {lastInvoice.invoice_number}</p>
-                <div className="text-5xl font-bold text-slate-800 dark:text-white mb-8">${lastInvoice.final_amount.toFixed(2)}</div>
-                <button
+            <div className="flex flex-col h-full bg-card p-10 items-center justify-center text-center animate-in fade-in zoom-in-95 duration-300">
+                <div className="w-24 h-24 bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 rounded-full flex items-center justify-center mb-6 shadow-inner ring-4 ring-green-50 dark:ring-green-900/10">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <h2 className="text-3xl font-bold tracking-tight mb-2">Sale Complete</h2>
+                <p className="text-muted-foreground mb-8 text-lg font-mono">{lastInvoice.invoice_number}</p>
+
+                <div className="text-6xl font-bold text-foreground mb-12 tracking-tighter">
+                    ${lastInvoice.final_amount.toFixed(2)}
+                </div>
+
+                <Button
                     onClick={() => setLastInvoice(null)}
-                    className="w-full max-w-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg"
+                    size="lg"
+                    className="w-full h-14 text-lg rounded-full shadow-xl shadow-primary/20"
                 >
                     Start New Sale
-                </button>
+                </Button>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-slate-950 border-l border-slate-300 dark:border-slate-800 shadow-2xl relative">
+        <div className="flex flex-col h-full bg-card border-l border-border shadow-2xl relative z-20">
             {/* Header */}
-            <div className="p-4 border-b dark:border-slate-800 bg-slate-50 dark:bg-black/20">
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Current Order</h2>
-                <div className="text-sm text-slate-500">{state.items.reduce((s, i) => s + i.quantity, 0)} Items</div>
+            <div className="p-6 border-b flex justify-between items-center bg-background/50 backdrop-blur-sm">
+                <div>
+                    <h2 className="text-xl font-bold tracking-tight">Current Order</h2>
+                    <p className="text-sm text-muted-foreground">
+                        {state.items.reduce((s, i) => s + i.quantity, 0)} items in cart
+                    </p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={clearCart} disabled={state.items.length === 0} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 size={20} />
+                </Button>
             </div>
 
             {/* Items List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {state.items.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-50">
-                        <div className="text-6xl mb-4">🛒</div>
-                        <div>Cart is empty</div>
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground/40 space-y-4">
+                        <ShoppingCart size={64} strokeWidth={1} />
+                        <p className="text-lg font-medium">Cart is empty</p>
                     </div>
                 ) : (
                     state.items.map(item => (
-                        <div key={item.id} className="flex justify-between items-start group">
-                            <div className="flex-1 pr-2">
-                                <div className="font-medium text-slate-900 dark:text-white">{item.name}</div>
-                                <div className="text-xs text-slate-500">${item.price.toFixed(2)} / unit</div>
+                        <Card key={item.id} className="flex p-3 gap-3 hover:border-primary/50 transition-colors group">
+                            {/* Quantity Controls */}
+                            <div className="flex flex-col items-center justify-center bg-muted/50 rounded-lg p-1 gap-1">
+                                <button
+                                    onClick={() => setQty(item.id, item.quantity + 1)}
+                                    className="w-8 h-8 flex items-center justify-center hover:bg-background rounded-md text-foreground transition-colors"
+                                >
+                                    <Plus size={14} />
+                                </button>
+                                <span className="font-bold text-sm w-full text-center">{item.quantity}</span>
+                                <button
+                                    onClick={() => item.quantity > 1 ? setQty(item.id, item.quantity - 1) : removeItem(item.id)}
+                                    className="w-8 h-8 flex items-center justify-center hover:bg-background rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                    <Minus size={14} />
+                                </button>
                             </div>
-                            <div className="flex flex-col items-end gap-1">
-                                <div className="font-bold text-slate-900 dark:text-white">${(item.price * item.quantity).toFixed(2)}</div>
-                                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 rounded-lg p-0.5 border dark:border-slate-700">
-                                    <button
-                                        onClick={() => item.quantity > 1 ? setQty(item.id, item.quantity - 1) : removeItem(item.id)}
-                                        className="w-7 h-7 flex items-center justify-center hover:bg-white dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition"
-                                    >
-                                        <Minus size={14} />
-                                    </button>
-                                    <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                                    <button
-                                        onClick={() => setQty(item.id, item.quantity + 1)}
-                                        className="w-7 h-7 flex items-center justify-center hover:bg-white dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition"
-                                    >
-                                        <Plus size={14} />
-                                    </button>
+
+                            <div className="flex-1 py-1">
+                                <div className="font-semibold text-foreground leading-snug">{item.name}</div>
+                                <div className="text-xs text-muted-foreground mt-1">${item.price.toFixed(2)} unit</div>
+                            </div>
+
+                            <div className="flex flex-col items-end justify-center py-1">
+                                <div className="font-bold text-lg text-foreground tracking-tight">
+                                    ${(item.price * item.quantity).toFixed(2)}
                                 </div>
                             </div>
-                        </div>
+                        </Card>
                     ))
                 )}
             </div>
 
-            {/* Footer / Controls */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-slate-800 space-y-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+            {/* Footer */}
+            <div className="p-6 bg-muted/10 border-t space-y-6">
+
                 {/* Calculations */}
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <div className="space-y-3 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
                         <span>Subtotal</span>
-                        <span>${subtotal.toFixed(2)}</span>
+                        <span className="font-medium text-foreground">${subtotal.toFixed(2)}</span>
                     </div>
-                    {/* Discount Input */}
-                    <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+
+                    <div className="flex justify-between items-center text-muted-foreground">
                         <span>Discount</span>
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs">-$</span>
-                            <input
+                        <div className="flex items-center gap-2">
+                            <Input
                                 type="number"
-                                min="0"
-                                className="w-16 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded px-1 py-0.5 text-right focus:ring-2 ring-blue-500 outline-none"
-                                value={state.discount}
+                                className="w-20 h-8 text-right font-medium"
+                                placeholder="0.00"
+                                value={state.discount > 0 ? state.discount : ''}
                                 onChange={e => setDiscount(parseFloat(e.target.value) || 0)}
                             />
                         </div>
                     </div>
 
-                    <div className="flex justify-between text-xl font-bold text-slate-900 dark:text-white pt-2 border-t dark:border-slate-700">
-                        <span>Grand Total</span>
-                        <span>${grandTotal.toFixed(2)}</span>
+                    <div className="flex justify-between items-center pt-4 border-t">
+                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-3xl font-extrabold tracking-tighter text-primary">${grandTotal.toFixed(2)}</span>
                     </div>
                 </div>
 
-                {/* Payment Section */}
-                <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border dark:border-slate-700 space-y-3">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setPayment('cash', state.paymentReceived)}
-                            className={clsx("flex-1 py-2 text-sm rounded flex items-center justify-center gap-2 border", state.paymentMethod === 'cash' ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "hover:bg-slate-50 dark:hover:bg-slate-700 dark:border-slate-600")}
-                        >
-                            <Banknote size={16} /> Cash
-                        </button>
-                        <button
-                            onClick={() => setPayment('card', state.paymentReceived)}
-                            className={clsx("flex-1 py-2 text-sm rounded flex items-center justify-center gap-2 border", state.paymentMethod === 'card' ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" : "hover:bg-slate-50 dark:hover:bg-slate-700 dark:border-slate-600")}
-                        >
-                            <CreditCard size={16} /> Card
-                        </button>
-                    </div>
+                {/* Payment Method */}
+                <div className="grid grid-cols-2 gap-3 p-1 bg-muted rounded-xl">
+                    <button
+                        onClick={() => setPayment('cash', state.paymentReceived)}
+                        className={cn(
+                            "py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all",
+                            state.paymentMethod === 'cash' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <Banknote size={16} /> Cash
+                    </button>
+                    <button
+                        onClick={() => setPayment('card', state.paymentReceived)}
+                        className={cn(
+                            "py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all",
+                            state.paymentMethod === 'card' ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <CreditCard size={16} /> Card
+                    </button>
+                </div>
 
-                    <div className="flex items-center justify-between gap-4">
-                        <label className="text-xs font-bold uppercase text-slate-500">Received</label>
-                        <div className="flex-1 relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                            <input
-                                type="number"
-                                className="w-full pl-7 pr-3 py-2 bg-slate-100 dark:bg-slate-900 border dark:border-slate-700 rounded-lg font-bold text-right outline-none focus:ring-2 focus:ring-blue-500"
-                                value={state.paymentReceived || ''}
-                                placeholder={grandTotal.toFixed(2)}
-                                onChange={e => setPayment(state.paymentMethod, parseFloat(e.target.value) || 0)}
-                            />
-                        </div>
+                {/* Tendered Amount */}
+                <div className="relative">
+                    <label className="absolute -top-2.5 left-3 bg-card px-1 text-xs font-semibold text-muted-foreground">Amount Tendered</label>
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
+                        <input
+                            type="number"
+                            className="w-full h-14 pl-8 pr-4 bg-background border rounded-xl text-xl font-bold text-right focus:ring-2 ring-primary outline-none transition-all"
+                            placeholder={grandTotal.toFixed(2)}
+                            value={state.paymentReceived || ''}
+                            onChange={e => setPayment(state.paymentMethod, parseFloat(e.target.value) || 0)}
+                        />
                     </div>
-                    {changeDue > 0 && (
-                        <div className="flex justify-between text-sm font-bold text-green-600 dark:text-green-400">
-                            <span>Change Due</span>
-                            <span>${changeDue.toFixed(2)}</span>
-                        </div>
+                </div>
+
+                {changeDue > 0 && (
+                    <div className="flex justify-between items-center bg-green-500/10 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl border border-green-500/20">
+                        <span className="font-semibold text-sm">Change Due</span>
+                        <span className="font-bold text-xl">${changeDue.toFixed(2)}</span>
+                    </div>
+                )}
+
+                {/* Action Button */}
+                <Button
+                    size="lg"
+                    className={cn(
+                        "w-full h-16 text-xl rounded-xl shadow-lg border-0",
+                        "bg-[#0F172A] text-white dark:bg-primary",
+                        !canCheckout || submitting ? "opacity-50 grayscale" : "hover:opacity-90 active:scale-[0.98]"
                     )}
-                </div>
-
-                {/* Checkout Button */}
-                <button
                     disabled={!canCheckout || submitting}
                     onClick={handleCheckout}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
-                    {submitting ? "Processing..." : `Complete Sale ($${grandTotal.toFixed(2)})`}
-                </button>
+                    {submitting ? (
+                        <>Processing...</>
+                    ) : (
+                        <div className="flex w-full justify-between items-center px-2">
+                            <span>Charge</span>
+                            <ArrowRight className="opacity-50" />
+                        </div>
+                    )}
+                </Button>
             </div>
 
             {/* Blocking Overlay */}
             {submitting && (
-                <div className="absolute inset-0 bg-white/50 dark:bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                <div className="absolute inset-0 bg-background/80 z-50 flex items-center justify-center backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+                        <p className="font-medium animate-pulse">Processing Transaction...</p>
+                    </div>
                 </div>
             )}
         </div>
