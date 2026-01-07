@@ -9,6 +9,7 @@ import (
 	"github.com/insaansher/sherpos/backend/db"
 	"github.com/insaansher/sherpos/backend/handlers"
 	"github.com/insaansher/sherpos/backend/middleware"
+	"github.com/insaansher/sherpos/backend/workers"
 	"github.com/joho/godotenv"
 )
 
@@ -20,6 +21,10 @@ func main() {
 	db.Connect()
 	db.SeedPlans()
 	db.SeedDemoData() // New Seed call
+
+	// Start background workers
+	go workers.StartSubscriptionWorker()
+	go workers.StartDeletionWorker()
 
 	r := gin.Default()
 
@@ -55,13 +60,16 @@ func main() {
 
 		tenantRoutes := api.Group("/")
 		tenantRoutes.Use(middleware.RequireTenantUser())
+		tenantRoutes.Use(middleware.SubscriptionEnforcementMiddleware()) // Phase 7
 		{
 			// ... existing billing/onboarding ...
 			billing := tenantRoutes.Group("/billing")
 			billing.Use(middleware.RequireRole("owner"))
 			{
-				billing.GET("/current", handlers.TenantBillingInfo)
+				billing.GET("/current", handlers.GetCurrentBilling) // Phase 7
+				billing.GET("/plans", handlers.PublicPlans)         // Allow in blocked state
 				billing.POST("/choose-plan", handlers.ChoosePlan)
+				billing.POST("/renew", handlers.RenewSubscription) // Phase 7
 			}
 			onboarding := tenantRoutes.Group("/onboarding")
 			onboarding.Use(middleware.RequireRole("owner", "manager"))
@@ -116,11 +124,12 @@ func main() {
 			}
 		}
 
-		admin := api.Group("/admin")
+		admin := v1.Group("/admin")
+		admin.Use(middleware.Auth())
+		admin.Use(middleware.CSRF())
 		admin.Use(middleware.RequirePlatformAdmin())
 		{
-			// ... admin routes ...
-			admin.GET("/dashboard", handlers.AdminDashboard)
+			// Plans Management
 			admin.GET("/plans", handlers.AdminListPlans)
 			admin.POST("/plans", handlers.AdminCreatePlan)
 			admin.PUT("/plans/:id", handlers.AdminUpdatePlanMeta)
@@ -129,6 +138,12 @@ func main() {
 			admin.PUT("/plans/:id/limits", handlers.AdminUpdatePlanLimits)
 			admin.PUT("/plans/:id/features", handlers.AdminUpdatePlanFeatures)
 			admin.POST("/plans/:id/clone", handlers.AdminClonePlan)
+
+			// Tenants
+			admin.GET("/tenants", handlers.AdminListTenants)
+
+			// Phase 7: Subscription Override
+			admin.PUT("/tenants/:id/subscription-status", handlers.AdminSetSubscriptionStatus)
 		}
 	}
 
